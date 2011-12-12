@@ -1,0 +1,14 @@
+# QP-nano source directories.
+/qp-nano
+
+# Intermediate output files.
+/flashy.map
+/flashy.elf
+/flashy.bin
+/*.d
+/*.o
+
+# Program file.
+/flashy.hex
+
+/doc
