@@ -1,0 +1,11 @@
+Pin assignments
+
+1	RESET		Pullup resistor
+2	PB3
+3	PB4,OC1B	Red PWM output
+4	GND
+5	PB0,OC0A	Green PWM output
+6	PB1,OC0B	Blue PWM output
+7	PB2
+8	VCC
+
