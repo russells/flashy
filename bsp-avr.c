@@ -2,7 +2,7 @@
 
 #include "bsp.h"
 #include "flashy.h"
-
+#include "toggle-pin.h"
 
 
 void QF_onStartup(void)
@@ -22,6 +22,8 @@ void QF_onStartup(void)
 void QF_onIdle(void)
 {
 	uint8_t mcucr;
+
+	TOGGLE_OFF();
 
 	/* We must re-enable interrupts as a minimum, or no events will be
 	   processed or generated. */
@@ -44,7 +46,7 @@ void QF_onIdle(void)
 
 void Q_onAssert(char const Q_ROM * const Q_ROM_VAR file, int line)
 {
-
+	TOGGLE(1000);
 }
 
 
@@ -63,6 +65,8 @@ void BSP_startmain(void)
 
 void BSP_init(void)
 {
+	TOGGLE_BEGIN();
+
 	wdt_enable(WDTO_30MS);
 	WDTCR |= (1 <<WDIE);
 
@@ -90,6 +94,7 @@ void BSP_init(void)
 
 SIGNAL(WDT_vect)
 {
+	TOGGLE_ON();
 	QActive_postISR((QActive*)(&flashy), WATCHDOG_SIGNAL, 0);
 	QF_tick();
 }
