@@ -55,6 +55,8 @@ colourState(struct Colour *me)
 static QState
 offState(struct Colour *me)
 {
+	uint16_t par;
+
 	switch (Q_SIG(me)) {
 	case Q_ENTRY_SIG:
 		*(me->pwmaddr) = 0;
@@ -62,8 +64,9 @@ offState(struct Colour *me)
 		return Q_HANDLED();
 	case FLASH_SIGNAL:
 		/* Save the flash parameters, then start the flash. */
-		me->max = Q_PAR(me) >> 8;
-		me->inc = Q_PAR(me) & 0xff;
+		par = Q_PAR(me);
+		me->max = (uint8_t)((par & 0xff00) >> 8);
+		me->inc = (uint8_t)(par & 0x00ff);
 		return Q_TRAN(flashCountUpState);
 	}
 	return Q_SUPER(colourState);
@@ -114,7 +117,6 @@ flashCountUpState(struct Colour *me)
 	switch (Q_SIG(me)) {
 	case Q_ENTRY_SIG:
 		*(me->pwmaddr) = 0x01;
-		me->inc = 1;
 		QActive_arm((QActive*)me, 1);
 		return Q_HANDLED();
 	case Q_TIMEOUT_SIG:

@@ -24,6 +24,7 @@ static QState indicateState        (struct Flashy *me);
 static QState indicateRedState     (struct Flashy *me);
 static QState indicateGreenState   (struct Flashy *me);
 static QState indicateBlueState    (struct Flashy *me);
+static QState indicateWhiteState   (struct Flashy *me);
 
 
 static QEvent flashyQueue[4];
@@ -127,8 +128,9 @@ indicateState(struct Flashy *me)
 }
 
 
-#define SHORT_FLASH (200<<8)&19
-#define SHORT_FLASH_TIMEOUT 20
+#define SHORT_FLASH ((250<<8) | (FLASH_MAX_INC-1))
+#define SHORT_FLASH_TIMEOUT 9
+#define SHORT_FLASHES_TIMEOUT (SHORT_FLASH_TIMEOUT+15)
 
 
 static QState
@@ -170,6 +172,23 @@ indicateBlueState(struct Flashy *me)
 		QActive_arm((QActive*)me, SHORT_FLASH_TIMEOUT);
 		return Q_HANDLED();
 	case Q_TIMEOUT_SIG:
+		return Q_TRAN(indicateWhiteState);
+	}
+	return Q_SUPER(indicateState);
+}
+
+
+static QState
+indicateWhiteState(struct Flashy *me)
+{
+	switch (Q_SIG(me)) {
+	case Q_ENTRY_SIG:
+		QActive_post((QActive*)(&red), FLASH_SIGNAL, SHORT_FLASH);
+		QActive_post((QActive*)(&blue), FLASH_SIGNAL, SHORT_FLASH);
+		QActive_post((QActive*)(&green), FLASH_SIGNAL, SHORT_FLASH);
+		QActive_arm((QActive*)me, SHORT_FLASHES_TIMEOUT);
+		return Q_HANDLED();
+	case Q_TIMEOUT_SIG:
 		return Q_TRAN(slowState);
 	}
 	return Q_SUPER(indicateState);
@@ -179,30 +198,28 @@ indicateBlueState(struct Flashy *me)
 static void
 send_random_flash_event(uint8_t maxinc)
 {
-	uint8_t col;
+	uint8_t cols;
 	uint8_t max;
 	uint8_t inc;
-	struct Colour *colour;
 
-	col = randbyte() % 3;
+	cols = 0;
+	while (! cols) {
+		cols = randbyte() % 0b111111;
+	}
 	max = randbyte();
 	/* Ensure that max is at least 10. */
 	max = 10 + (randbyte() % 230);
 	/* Ensure that inc is at least 1. */
 	inc = 1 + (randbyte() % (maxinc-1));
-	switch (col) {
-	default:
-	case 0:
-		colour = &red;
-		break;
-	case 1:
-		colour = &green;
-		break;
-	case 2:
-		colour = &blue;
-		break;
+	if (cols & 0b100100) {
+		QActive_post((QActive*)(&red), FLASH_SIGNAL, (max<<8)|inc);
 	}
-	QActive_post((QActive*)colour, FLASH_SIGNAL, (max<<8)&inc);
+	if (cols & 0b010010) {
+		QActive_post((QActive*)(&green), FLASH_SIGNAL, (max<<8)|inc);
+	}
+	if (cols & 0b001001) {
+		QActive_post((QActive*)(&blue), FLASH_SIGNAL, (max<<8)|inc);
+	}
 }
 
 
@@ -216,14 +233,14 @@ slowState(struct Flashy *me)
 		QActive_arm((QActive*)me, 1);
 		return Q_HANDLED();
 	case Q_TIMEOUT_SIG:
-		send_random_flash_event(FLASH_MAX_INC / 3);
+		send_random_flash_event(2);
 		change = randbyte();
 		if (change > 240) {
 			return Q_TRAN(fastState);
 		} else if (change >200 && change < 210) {
 			return Q_TRAN(indicateRedState); /** @todo see other note */
 		} else {
-			QActive_arm((QActive*)me, 15 + randbyte() % 180);
+			QActive_arm((QActive*)me, 15 + randbyte() % 30);
 			return Q_HANDLED();
 		}
 	}
@@ -240,10 +257,10 @@ fastState(struct Flashy *me)
 		return Q_HANDLED();
 	case Q_TIMEOUT_SIG:
 		send_random_flash_event(FLASH_MAX_INC);
-		if (randbyte() > 200) {
+		if (randbyte() > 240) {
 			return Q_TRAN(slowState);
 		} else {
-			QActive_arm((QActive*)me, 3 + randbyte() % 30);
+			QActive_arm((QActive*)me, 3 + randbyte() % 10);
 			return Q_HANDLED();
 		}
 	}
