@@ -1,6 +1,8 @@
 #include "colour.h"
 #include "flashy.h"
 
+Q_DEFINE_THIS_FILE;
+
 struct Colour red;
 struct Colour green;
 struct Colour blue;
@@ -127,6 +129,12 @@ flashCountUpState(struct Colour *me)
 			newvalue = value +
 				(me->inc) * (2*(value/FLASH_MAX_INC));
 		}
+		/* Because of our use of strange wraparound arithmetic above,
+		   we can get a new value the same as the current value
+		   sometimes. */
+		if (newvalue == value ) {
+			newvalue ++;
+		}
 		if (newvalue < value) {
 			/* Sanity check for wraparound. */
 			return Q_TRAN(flashCountDownState);
@@ -162,6 +170,12 @@ flashCountDownState(struct Colour *me)
 		} else {
 			newvalue = value -
 				(me->inc)*(value/FLASH_MAX_INC);
+		}
+		/* Because of our use of strange wraparound arithmetic above,
+		   we can get a new value the same as the current value
+		   sometimes. */
+		if (newvalue == value ) {
+			newvalue --;
 		}
 		if (newvalue > value) {
 			/* Sanity check for wraparound. */
