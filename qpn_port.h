@@ -33,13 +33,13 @@
 #define Q_ROM_PTR(rom_var_)     pgm_read_word_near(&(rom_var_))
 
 #define Q_NFSM
-#define Q_PARAM_SIZE            0 /* The doorbell event has no extra
-				     parameters. */
-#define QF_TIMEEVT_CTR_SIZE     2 /* 16 bit time counter for doorbell. */
+#define Q_PARAM_SIZE            2 /* The flashy event has one extra
+				     parameter. */
+#define QF_TIMEEVT_CTR_SIZE     2 /* 16 bit time counter for flashy. */
 
 /* maximum # active objects--must match EXACTLY the QF_active[] definition  */
-#define QF_MAX_ACTIVE           1 /* The bikelight has these active objects:
-				     bikelight. */
+#define QF_MAX_ACTIVE           4 /* The flashy has these active objects:
+				     flashy, red, green, blue. */
 
                                /* interrupt locking policy for IAR compiler */
 #define QF_INT_LOCK()           cli()

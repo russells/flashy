@@ -34,7 +34,7 @@ CFLAGS  = -c -gdwarf-2 -std=gnu99 -Os -fsigned-char -fshort-enums \
 	-I$(QPN_INCDIR) -I.
 LINKFLAGS = -gdwarf-2 -Os -mmcu=$(TARGET_MCU)
 
-SRCS = flashy.c bsp-avr.c qepn.c qfn.c
+SRCS = flashy.c bsp-avr.c qepn.c qfn.c colour.c
 
 OBJS = $(SRCS:.c=.o)
 DEPS = $(SRCS:.c=.d)
@@ -74,7 +74,7 @@ clean:
 
 .PHONY: flash
 flash: $(HEXPROGRAM)
-	avrdude -P usb -p t85 -c $(AVR_PGOGRAMMER) -U flash:w:$(HEXPROGRAM)
+	avrdude -P /dev/ttyACM0 -p t85 -c stk500v2 -U flash:w:$(HEXPROGRAM)
 
 .PHONY: doc
 doc:

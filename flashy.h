@@ -11,7 +11,12 @@ enum FlashySignals {
 	 * Sent for timing, and so we can confirm that the event loop is
 	 * running.
 	 */
-	WATCHDOG_SIGNAL,
+	WATCHDOG_SIGNAL = Q_USER_SIG,
+	/**
+	 * Start a new flash.
+	 */
+	FLASH_SIGNAL,
+
 	MAX_PUB_SIG,
 	MAX_SIG,
 };
@@ -37,6 +42,10 @@ struct Flashy {
 	QActive super;
 	int presses;
 };
+
+
+/** The only active Flashy. */
+extern struct Flashy flashy;
 
 
 /**
