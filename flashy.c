@@ -7,6 +7,7 @@
 #include "flashy.h"
 #include "colour.h"
 #include "bsp.h"
+#include "toggle-pin.h"
 #include <stdlib.h>		/* random() */
 
 
@@ -18,6 +19,7 @@ Q_DEFINE_THIS_FILE;
 
 static QState flashyInitial        (struct Flashy *me);
 static QState flashyState          (struct Flashy *me);
+static QState normalState          (struct Flashy *me);
 static QState slowState            (struct Flashy *me);
 static QState fastState            (struct Flashy *me);
 static QState indicateState        (struct Flashy *me);
@@ -27,7 +29,11 @@ static QState indicateBlueState    (struct Flashy *me);
 static QState indicateWhiteState   (struct Flashy *me);
 
 
-static QEvent flashyQueue[4];
+/** This queue needs to be fairly large because flashy gets sent events from
+    five different sources: ISR, three Colour state machines, and itself.  They
+    can all send events at once, so we need a queue big enough to hold that,
+    plus a bit. */
+static QEvent flashyQueue[7];
 static QEvent redQueue   [4];
 static QEvent greenQueue [4];
 static QEvent blueQueue  [4];
@@ -82,6 +88,7 @@ int main(int argc, char **argv)
 void flashy_ctor(void)
 {
 	QActive_ctor((QActive *)(&flashy), (QStateHandler)&flashyInitial);
+	flashy.leds_on = 0;
 }
 
 
@@ -91,6 +98,18 @@ static QState flashyInitial(struct Flashy *me)
 }
 
 
+/**
+ * Top state for the Flashy.
+ *
+ * Does an initial startup delay, just for effect.
+ *
+ * Counts LED on and off events so that when we transition from the indicate
+ * states to the normal flashing states, the count is correct.
+ *
+ * Handles the watchdog timeouts by calling the BSP function that resets the
+ * watchdog.  By involving the main loop in the watchdog resets, we can be sure
+ * that both the ISRs and the QP-nano main loop are still running.
+ */
 static QState flashyState(struct Flashy *me)
 {
 	switch (Q_SIG(me)) {
@@ -101,6 +120,15 @@ static QState flashyState(struct Flashy *me)
 	case Q_TIMEOUT_SIG:
 		/* After the initial delay, do the three flashes. */
 		return Q_TRAN(indicateRedState); /** @todo see other note */
+	case LED_ON_SIGNAL:
+		me->leds_on++;
+		return Q_HANDLED();
+	case LED_OFF_SIGNAL:
+		if (! me->leds_on)
+			TOGGLE(2000);
+		Q_ASSERT(me->leds_on);
+		me->leds_on--;
+		return Q_HANDLED();
 	case WATCHDOG_SIGNAL:
 		BSP_watchdog(me);
 		return Q_HANDLED();
@@ -223,6 +251,36 @@ send_random_flash_event(uint8_t maxinc)
 }
 
 
+/**
+ * A super state for slowState() and fastState().  The main task of this state
+ * is to handle the LED on and off counts, and to ensure that when all the LEDs
+ * are off, we immediately start another flash.
+ *
+ * FIXME check that there are no paths that result in us entering here and
+ * ending up with a count out of sync.
+ */
+static QState
+normalState(struct Flashy *me)
+{
+	switch (Q_SIG(me)) {
+	case Q_ENTRY_SIG:
+		return Q_HANDLED();
+	case LED_ON_SIGNAL:
+		me->leds_on++;
+		return Q_HANDLED();
+	case LED_OFF_SIGNAL:
+		if (! me->leds_on)
+			TOGGLE(3000);
+		Q_ASSERT(me->leds_on);
+		me->leds_on--;
+		if (0 == me->leds_on)
+			QActive_post((QActive*)me, FLASH_SIGNAL, 0);
+		return Q_HANDLED();
+	}
+	return Q_SUPER(flashyState);
+}
+
+
 static QState
 slowState(struct Flashy *me)
 {
@@ -230,9 +288,11 @@ slowState(struct Flashy *me)
 
 	switch (Q_SIG(me)) {
 	case Q_ENTRY_SIG:
-		QActive_arm((QActive*)me, 1);
+		if (0 == me->leds_on)
+			send_random_flash_event(2);
 		return Q_HANDLED();
 	case Q_TIMEOUT_SIG:
+	case FLASH_SIGNAL:
 		send_random_flash_event(2);
 		change = randbyte();
 		if (change > 240) {
@@ -244,7 +304,7 @@ slowState(struct Flashy *me)
 			return Q_HANDLED();
 		}
 	}
-	return Q_SUPER(flashyState);
+	return Q_SUPER(normalState);
 }
 
 
@@ -256,6 +316,7 @@ fastState(struct Flashy *me)
 		QActive_arm((QActive*)me, 1);
 		return Q_HANDLED();
 	case Q_TIMEOUT_SIG:
+	case FLASH_SIGNAL:
 		send_random_flash_event(FLASH_MAX_INC);
 		if (randbyte() > 240) {
 			return Q_TRAN(slowState);
@@ -264,5 +325,5 @@ fastState(struct Flashy *me)
 			return Q_HANDLED();
 		}
 	}
-	return Q_SUPER(flashyState);
+	return Q_SUPER(normalState);
 }

@@ -87,8 +87,12 @@ onState(struct Colour *me)
 {
 	switch (Q_SIG(me)) {
 	case Q_ENTRY_SIG:
+		QActive_post((QActive*)(&flashy), LED_ON_SIGNAL, 0);
 		*(me->pwmaddr) = 0xff; /* This turns off the LED. */
 		DDRB |= me->bit;
+		return Q_HANDLED();
+	case Q_EXIT_SIG:
+		QActive_post((QActive*)(&flashy), LED_OFF_SIGNAL, 0);
 		return Q_HANDLED();
 	}
 

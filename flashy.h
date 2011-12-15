@@ -17,6 +17,15 @@ enum FlashySignals {
 	 */
 	FLASH_SIGNAL,
 
+	/**
+	 * A LED has been turned on.
+	 */
+	LED_ON_SIGNAL,
+	/**
+	 * A LED has been turned off.
+	 */
+	LED_OFF_SIGNAL,
+
 	MAX_PUB_SIG,
 	MAX_SIG,
 };
@@ -40,7 +49,7 @@ void flashy_ctor(void);
  */
 struct Flashy {
 	QActive super;
-	int presses;
+	uint8_t leds_on;
 };
 
 
