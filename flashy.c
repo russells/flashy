@@ -88,7 +88,9 @@ int main(int argc, char **argv)
 void flashy_ctor(void)
 {
 	QActive_ctor((QActive *)(&flashy), (QStateHandler)&flashyInitial);
-	flashy.leds_on = 0;
+	flashy.red_on = 0;
+	flashy.green_on = 0;
+	flashy.blue_on = 0;
 }
 
 
@@ -120,15 +122,6 @@ static QState flashyState(struct Flashy *me)
 	case Q_TIMEOUT_SIG:
 		/* After the initial delay, do the three flashes. */
 		return Q_TRAN(indicateRedState); /** @todo see other note */
-	case LED_ON_SIGNAL:
-		me->leds_on++;
-		return Q_HANDLED();
-	case LED_OFF_SIGNAL:
-		if (! me->leds_on)
-			TOGGLE(2000);
-		Q_ASSERT(me->leds_on);
-		me->leds_on--;
-		return Q_HANDLED();
 	case WATCHDOG_SIGNAL:
 		BSP_watchdog(me);
 		return Q_HANDLED();
@@ -146,12 +139,16 @@ static QState flashyState(struct Flashy *me)
 static QState
 indicateState(struct Flashy *me)
 {
-	/* see the @todo
 	switch (Q_SIG(me)) {
+	/* see the @todo
 	case Q_INIT_SIG:
 		return Q_INIT(indicateRedState); // May need Q_TRAN() instead.
-	}
 	*/
+	case RED_ON_SIGNAL:
+	case GREEN_ON_SIGNAL:
+	case BLUE_ON_SIGNAL:
+		return Q_HANDLED();
+	}
 	return Q_SUPER(flashyState);
 }
 
@@ -167,9 +164,8 @@ indicateRedState(struct Flashy *me)
 	switch (Q_SIG(me)) {
 	case Q_ENTRY_SIG:
 		QActive_post((QActive*)(&red), FLASH_SIGNAL, SHORT_FLASH);
-		QActive_arm((QActive*)me, SHORT_FLASH_TIMEOUT);
 		return Q_HANDLED();
-	case Q_TIMEOUT_SIG:
+	case RED_OFF_SIGNAL:
 		return Q_TRAN(indicateGreenState);
 	}
 	return Q_SUPER(indicateState);
@@ -182,9 +178,8 @@ indicateGreenState(struct Flashy *me)
 	switch (Q_SIG(me)) {
 	case Q_ENTRY_SIG:
 		QActive_post((QActive*)(&green), FLASH_SIGNAL, SHORT_FLASH);
-		QActive_arm((QActive*)me, SHORT_FLASH_TIMEOUT);
 		return Q_HANDLED();
-	case Q_TIMEOUT_SIG:
+	case GREEN_OFF_SIGNAL:
 		return Q_TRAN(indicateBlueState);
 	}
 	return Q_SUPER(indicateState);
@@ -197,9 +192,8 @@ indicateBlueState(struct Flashy *me)
 	switch (Q_SIG(me)) {
 	case Q_ENTRY_SIG:
 		QActive_post((QActive*)(&blue), FLASH_SIGNAL, SHORT_FLASH);
-		QActive_arm((QActive*)me, SHORT_FLASH_TIMEOUT);
 		return Q_HANDLED();
-	case Q_TIMEOUT_SIG:
+	case BLUE_OFF_SIGNAL:
 		return Q_TRAN(indicateWhiteState);
 	}
 	return Q_SUPER(indicateState);
@@ -214,10 +208,24 @@ indicateWhiteState(struct Flashy *me)
 		QActive_post((QActive*)(&red), FLASH_SIGNAL, SHORT_FLASH);
 		QActive_post((QActive*)(&blue), FLASH_SIGNAL, SHORT_FLASH);
 		QActive_post((QActive*)(&green), FLASH_SIGNAL, SHORT_FLASH);
-		QActive_arm((QActive*)me, SHORT_FLASHES_TIMEOUT);
+		me->red_on = 1;
+		me->green_on = 1;
+		me->blue_on = 1;
 		return Q_HANDLED();
-	case Q_TIMEOUT_SIG:
-		return Q_TRAN(slowState);
+	case RED_OFF_SIGNAL:
+		me->red_on = 0;
+		goto led_off;
+	case GREEN_OFF_SIGNAL:
+		me->green_on = 0;
+		goto led_off;
+	case BLUE_OFF_SIGNAL:
+		me->blue_on = 0;
+		goto led_off;
+	led_off:
+		if ((! me->red_on) && (! me->green_on) && (! me->blue_on))
+			return Q_TRAN(slowState);
+		else
+			return Q_HANDLED();
 	}
 	return Q_SUPER(indicateState);
 }
@@ -251,6 +259,14 @@ send_random_flash_event(uint8_t maxinc)
 }
 
 
+static void
+maybe_send_flash_event(struct Flashy *me)
+{
+	if ((! me->red_on) && (! me->green_on) && (! me->blue_on))
+		QActive_post((QActive*)me, FLASH_SIGNAL, 0);
+}
+
+
 /**
  * A super state for slowState() and fastState().  The main task of this state
  * is to handle the LED on and off counts, and to ensure that when all the LEDs
@@ -265,16 +281,26 @@ normalState(struct Flashy *me)
 	switch (Q_SIG(me)) {
 	case Q_ENTRY_SIG:
 		return Q_HANDLED();
-	case LED_ON_SIGNAL:
-		me->leds_on++;
+	case RED_ON_SIGNAL:
+		me->red_on = 1;
 		return Q_HANDLED();
-	case LED_OFF_SIGNAL:
-		if (! me->leds_on)
-			TOGGLE(3000);
-		Q_ASSERT(me->leds_on);
-		me->leds_on--;
-		if (0 == me->leds_on)
-			QActive_post((QActive*)me, FLASH_SIGNAL, 0);
+	case RED_OFF_SIGNAL:
+		me->red_on = 0;
+		maybe_send_flash_event(me);
+		return Q_HANDLED();
+	case GREEN_ON_SIGNAL:
+		me->green_on = 1;
+		return Q_HANDLED();
+	case GREEN_OFF_SIGNAL:
+		me->green_on = 0;
+		maybe_send_flash_event(me);
+		return Q_HANDLED();
+	case BLUE_ON_SIGNAL:
+		me->blue_on = 1;
+		return Q_HANDLED();
+	case BLUE_OFF_SIGNAL:
+		me->blue_on = 0;
+		maybe_send_flash_event(me);
 		return Q_HANDLED();
 	}
 	return Q_SUPER(flashyState);
@@ -288,8 +314,7 @@ slowState(struct Flashy *me)
 
 	switch (Q_SIG(me)) {
 	case Q_ENTRY_SIG:
-		if (0 == me->leds_on)
-			send_random_flash_event(2);
+		maybe_send_flash_event(me);
 		return Q_HANDLED();
 	case Q_TIMEOUT_SIG:
 	case FLASH_SIGNAL:
@@ -297,10 +322,8 @@ slowState(struct Flashy *me)
 		change = randbyte();
 		if (change > 240) {
 			return Q_TRAN(fastState);
-		} else if (change >200 && change < 210) {
-			return Q_TRAN(indicateRedState); /** @todo see other note */
 		} else {
-			QActive_arm((QActive*)me, 15 + randbyte() % 30);
+			QActive_arm((QActive*)me, 10 + randbyte() % 20);
 			return Q_HANDLED();
 		}
 	}
@@ -311,6 +334,8 @@ slowState(struct Flashy *me)
 static QState
 fastState(struct Flashy *me)
 {
+	uint8_t change;
+
 	switch (Q_SIG(me)) {
 	case Q_ENTRY_SIG:
 		QActive_arm((QActive*)me, 1);
@@ -318,7 +343,8 @@ fastState(struct Flashy *me)
 	case Q_TIMEOUT_SIG:
 	case FLASH_SIGNAL:
 		send_random_flash_event(FLASH_MAX_INC);
-		if (randbyte() > 240) {
+		change = randbyte();
+		if (change > 240) {
 			return Q_TRAN(slowState);
 		} else {
 			QActive_arm((QActive*)me, 3 + randbyte() % 10);

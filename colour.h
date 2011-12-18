@@ -16,6 +16,8 @@ struct Colour {
 	uint8_t inc;
 	/** Maximum value of the PWM brightness. */
 	uint8_t max;
+	int on_signal;
+	int off_signal;
 };
 
 

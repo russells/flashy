@@ -17,14 +17,18 @@ enum FlashySignals {
 	 */
 	FLASH_SIGNAL,
 
-	/**
-	 * A LED has been turned on.
-	 */
-	LED_ON_SIGNAL,
-	/**
-	 * A LED has been turned off.
-	 */
-	LED_OFF_SIGNAL,
+	/** The red LED has been turned on. */
+	RED_ON_SIGNAL,
+	/** The red LED has been turned off. */
+	RED_OFF_SIGNAL,
+	/** The green LED has been turned on. */
+	GREEN_ON_SIGNAL,
+	/** The green LED has been turned off. */
+	GREEN_OFF_SIGNAL,
+	/** The blue LED has been turned on. */
+	BLUE_ON_SIGNAL,
+	/** The blue LED has been turned off. */
+	BLUE_OFF_SIGNAL,
 
 	MAX_PUB_SIG,
 	MAX_SIG,
@@ -49,7 +53,9 @@ void flashy_ctor(void);
  */
 struct Flashy {
 	QActive super;
-	uint8_t leds_on;
+	uint8_t red_on;
+	uint8_t green_on;
+	uint8_t blue_on;
 };
 
 

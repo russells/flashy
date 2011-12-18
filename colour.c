@@ -23,16 +23,22 @@ colours_init(void)
 	red.bit = (1 << RED_BIT);
 	red.notbit = ~ (1 << RED_BIT);
 	red.pwmaddr = &(OCR1B);
+	red.on_signal = RED_ON_SIGNAL;
+	red.off_signal = RED_OFF_SIGNAL;
 	QActive_ctor((QActive*)(&red), (QStateHandler)colourInitial);
 
 	green.bit = (1 << GREEN_BIT);
 	green.notbit = ~ (1 << GREEN_BIT);
 	green.pwmaddr = &(OCR0A);
+	green.on_signal = GREEN_ON_SIGNAL;
+	green.off_signal = GREEN_OFF_SIGNAL;
 	QActive_ctor((QActive*)(&green), (QStateHandler)colourInitial);
 
 	blue.bit = (1 << BLUE_BIT);
 	blue.notbit = ~ (1 << BLUE_BIT);
 	blue.pwmaddr = &(OCR0B);
+	blue.on_signal = BLUE_ON_SIGNAL;
+	blue.off_signal = BLUE_OFF_SIGNAL;
 	QActive_ctor((QActive*)(&blue), (QStateHandler)colourInitial);
 }
 
@@ -87,12 +93,12 @@ onState(struct Colour *me)
 {
 	switch (Q_SIG(me)) {
 	case Q_ENTRY_SIG:
-		QActive_post((QActive*)(&flashy), LED_ON_SIGNAL, 0);
+		QActive_post((QActive*)(&flashy), me->on_signal, 0);
 		*(me->pwmaddr) = 0xff; /* This turns off the LED. */
 		DDRB |= me->bit;
 		return Q_HANDLED();
 	case Q_EXIT_SIG:
-		QActive_post((QActive*)(&flashy), LED_OFF_SIGNAL, 0);
+		QActive_post((QActive*)(&flashy), me->off_signal, 0);
 		return Q_HANDLED();
 	}
 
