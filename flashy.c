@@ -154,8 +154,6 @@ indicateState(struct Flashy *me)
 
 
 #define SHORT_FLASH ((250<<8) | (FLASH_MAX_INC-1))
-#define SHORT_FLASH_TIMEOUT 9
-#define SHORT_FLASHES_TIMEOUT (SHORT_FLASH_TIMEOUT+15)
 
 
 static QState

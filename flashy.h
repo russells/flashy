@@ -36,15 +36,7 @@ enum FlashySignals {
 
 
 /**
- * The event structure does not contain any extra information.
- */
-struct FlashyEvent {
-	QEvent super;
-};
-
-
-/**
- * Create the lap clock.
+ * Create the flashy.
  */
 void flashy_ctor(void);
 
