@@ -229,20 +229,47 @@ indicateWhiteState(struct Flashy *me)
 }
 
 
+/**
+ * Generate a flash event.
+ *
+ * The minimum value of the flash brightness and the maximum value of the
+ * colour up counter are specified.
+ *
+ * To generate a flash that might be fast, make minmax low and maxinc high.
+ *
+ * To generate a flash that is slower, make minmax high and maxinc low.
+ *
+ * @param minmax The minimum value of the "max" part of the flash signal
+ * parameter.  When this is low, flashes are shorter because the colour objects
+ * don't have to count as high.  Clamped to between 10 and 200, inclusive.
+ *
+ * @param maxinc The maximum value of the "inc" part of the flash signal
+ * parameter.  When this is low, flashes are longer because the colour objects
+ * count up slower.  Clamped to between 1 and FLASH_MAX_INC, inclusive.
+ */
 static void
-send_random_flash_event(uint8_t maxinc)
+send_random_flash_event(uint8_t minmax, uint8_t maxinc)
 {
 	uint8_t cols;
 	uint8_t max;
 	uint8_t inc;
 
+	if (minmax < 10)
+		minmax = 10;
+	else if (minmax > 200)
+		minmax = 200;
+	if (maxinc < 1)
+		maxinc = 1;
+	else if (maxinc > FLASH_MAX_INC)
+		maxinc = FLASH_MAX_INC;
+
 	cols = 0;
 	while (! cols) {
 		cols = randbyte() % 0b111111;
 	}
-	max = randbyte();
-	/* Ensure that max is at least 10. */
-	max = 10 + (randbyte() % 230);
+
+	/* Ensure that max is at least minmax. */
+	max = minmax + (randbyte() % (230 - minmax));
 	/* Ensure that inc is at least 1. */
 	inc = 1 + (randbyte() % (maxinc-1));
 	if (cols & 0b100100) {
@@ -308,6 +335,7 @@ normalState(struct Flashy *me)
 static QState
 slowState(struct Flashy *me)
 {
+	static uint8_t no = 0;
 	uint8_t change;
 
 	switch (Q_SIG(me)) {
@@ -316,9 +344,9 @@ slowState(struct Flashy *me)
 		return Q_HANDLED();
 	case Q_TIMEOUT_SIG:
 	case FLASH_SIGNAL:
-		send_random_flash_event(2);
+		send_random_flash_event(150, 2);
 		change = randbyte();
-		if (change > 240) {
+		if (no && (change > 240)) {
 			return Q_TRAN(fastState);
 		} else {
 			QActive_arm((QActive*)me, 10 + randbyte() % 20);
@@ -340,7 +368,7 @@ fastState(struct Flashy *me)
 		return Q_HANDLED();
 	case Q_TIMEOUT_SIG:
 	case FLASH_SIGNAL:
-		send_random_flash_event(FLASH_MAX_INC);
+		send_random_flash_event(50, FLASH_MAX_INC);
 		change = randbyte();
 		if (change > 240) {
 			return Q_TRAN(slowState);
