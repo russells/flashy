@@ -5,6 +5,14 @@
 #include "toggle-pin.h"
 
 
+#ifdef _AVR_IOTN43U_H_
+#define _WDTCR WDTCSR
+#endif
+#ifdef _AVR_IOTNX5_H_
+#define _WDTCR WDTCR
+#endif
+
+
 void QF_onStartup(void)
 {
 
@@ -53,7 +61,7 @@ void Q_onAssert(char const Q_ROM * const Q_ROM_VAR file, int line)
 void BSP_watchdog(struct Flashy *me)
 {
 	wdt_reset();
-	WDTCR |= (1 <<WDIE);
+	_WDTCR |= (1 <<WDIE);
 }
 
 
@@ -68,7 +76,7 @@ void BSP_init(void)
 	TOGGLE_BEGIN();
 
 	wdt_enable(WDTO_30MS);
-	WDTCR |= (1 <<WDIE);
+	_WDTCR |= (1 <<WDIE);
 
 	/* Set up the timers for PWM. */
 
@@ -81,6 +89,7 @@ void BSP_init(void)
 	OCR0A = 0xff;
 	OCR0B = 0xff;
 
+#ifdef _AVR_IOTNX5_H_
 	/* Timer 1 */
 	TCCR1 = (0b0 << CTC1) |
 		(0b1 << PWM1A) |
@@ -89,6 +98,20 @@ void BSP_init(void)
 	GTCCR = (0b1 << PWM1B) |
 		(0b10 << COM1B0);
 	OCR1B = 0xff;
+#else
+#ifdef _AVR_IOTN43U_H_
+	/* Timer 1 */
+	TCCR1A = (0b10 << COM1A0) |
+		(0b10 << COM1B0) |
+		(0b11 << WGM10);
+	TCCR1B = (0 << WGM12) |
+		(0b010 << CS10);
+	OCR1A = 0xff;
+	OCR1B = 0xff;
+#else
+# error Unknown AVR type
+#endif
+#endif
 }
 
 

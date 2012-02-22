@@ -23,6 +23,16 @@ BINPROGRAM = $(APPNAME).bin
 AVR_PROGRAMMER ?= stk500v2
 AVR_PROGRAMMER_PORT = /dev/ttyACM0
 
+MCU ?= attiny43u
+ifeq ($(MCU),attiny43u)
+AVRDUDE_MCU=t43u
+else
+ifeq ($(MCU),attiny85)
+AVRDUDE_MCU=t85
+else
+$(error Unknown MCU $(MCU))
+endif
+endif
 
 QPN_INCDIR = qp-nano/include
 QP_LIBDIR = $(QP_PRTDIR)/$(BINDIR)
@@ -30,12 +40,11 @@ QP_SRCDIR = qp-nano/source
 QP_LIBS   =
 EXTRA_LIBS =
 EXTRA_LINK_FLAGS = -Wl,-Map,$(PROGRAMMAPFILE),--cref
-TARGET_MCU = attiny85
 CFLAGS  = -c -gdwarf-2 -std=gnu99 -Os -fsigned-char -fshort-enums \
 	-Wno-attributes \
-	-mmcu=$(TARGET_MCU) -Wall -Werror -o$@ \
+	-mmcu=$(MCU) -Wall -Werror -o$@ \
 	-I$(QPN_INCDIR) -I.
-LINKFLAGS = -gdwarf-2 -Os -mmcu=$(TARGET_MCU)
+LINKFLAGS = -gdwarf-2 -Os -mmcu=$(MCU)
 
 SRCS = flashy.c bsp-avr.c qepn.c qfn.c colour.c
 
@@ -77,7 +86,7 @@ clean:
 
 .PHONY: flash
 flash: $(HEXPROGRAM)
-	avrdude -P $(AVR_PROGRAMMER_PORT) -c $(AVR_PROGRAMMER) -p t85 -U flash:w:$(HEXPROGRAM)
+	avrdude -P $(AVR_PROGRAMMER_PORT) -c $(AVR_PROGRAMMER) -p $(AVRDUDE_MCU) -U flash:w:$(HEXPROGRAM)
 
 .PHONY: doc
 doc:

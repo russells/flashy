@@ -68,7 +68,23 @@ Q_ASSERT_COMPILE(QF_MAX_ACTIVE == Q_DIM(QF_active) - 1);
 static uint8_t
 randbyte(void)
 {
+#ifdef _AVR_IOTN43U_H_
+	/* On the 43U, we don't have enough room to include the C library's
+	   random(), so use a really weak combination of an incrementing byte
+	   and some apparently-random data from ROM. */
+	static uint8_t r;
+	static uint8_t *ip = 0;
+	if (ip > (uint8_t*)1024) {
+		ip = 0;
+	}
+	return (++r) ^ (Q_ROM_BYTE(*ip));
+#else
+#ifdef _AVR_IOTN85_H_
 	return random();
+#else
+# error unknown MCU
+#endif
+#endif
 }
 
 

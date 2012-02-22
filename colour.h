@@ -29,9 +29,20 @@ extern struct Colour green;
 extern struct Colour blue;
 
 
-#define RED_BIT   4		/** Bit in PORTB for red channel. */
-#define GREEN_BIT 0		/** Bit in PORTB for green channel. */
-#define BLUE_BIT  1		/** Bit in PORTB for blue channel. */
+/* For both the ATtiny85V and ATtiny43U, these outputs are in PORT B. */
+#ifdef _AVR_IOTNX5_H_
+# define RED_BIT   4		/** OC1B.  Bit 4 for ATtiny85V. */
+# define GREEN_BIT 0		/** OC0A.  Bit 0 for ATtiny85V. */
+# define BLUE_BIT  1		/** OC0B.  Bit 1 for ATtiny85V. */
+#else
+#ifdef _AVR_IOTN43U_H_
+# define RED_BIT   5		/** Bit 5 for ATtiny43U. */
+# define GREEN_BIT 1		/** Bit 1 for ATtiny43U. */
+# define BLUE_BIT  2		/** Bit 2 for ATtiny43U. */
+#else
+# error Unknown AVR type
+#endif
+#endif
 
 #define FLASH_MAX_INC 20	/** Maximum increment step while flashing.
 				    Setting this higher will give more short
